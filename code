@@ -1,0 +1,65 @@
+
+
+#pasichr/capture-frames-using-cam-with-yolov4
+
+
+#1) using cmd at first install neccesary libraries
+#pip install opencv-python
+#pip install tensorflow==2.4.1
+#pip install numpy
+#pip install pillow
+#pip install keras==2.4.3
+
+#2)Download the YOLOv4 weights file and the YOLOv4 configuration file from the official repository:
+#wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4.cfg
+#wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4.weights
+
+# at the vs code or any ide 3)Load the YOLOv4 model using OpenCV's DNN module:
+#model = cv2.dnn.readNetFromDarknet('yolov4.cfg', 'yolov4.weights')
+
+#4)in vs code or any ide Define the classes to be recognized:
+#classes = ['Human', 'Bird', 'Drone']
+
+$5) Capture frames from the camera and apply object detection using the YOLOv4 model:
+
+while True:
+    # Read a frame from the camera
+    ret, frame = cap.read()
+
+    # Detect objects in the frame using YOLOv4
+    blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416, 416), swapRB=True, crop=False)
+    model.setInput(blob)
+    outputs = model.forward(model.getUnconnectedOutLayersNames())
+    boxes, confidences, class_ids = [], [], []
+    for output in outputs:
+        for detection in output:
+            scores = detection[5:]
+            class_id = np.argmax(scores)
+            confidence = scores[class_id]
+            if confidence > 0.5:
+                center_x, center_y, w, h = detection[:4] * np.array([frame.shape[1], frame.shape[0], frame.shape[1], frame.shape[0]])
+                x, y = int(center_x - w/2), int(center_y - h/2)
+                boxes.append([x, y, int(w), int(h)])
+                confidences.append(float(confidence))
+                class_ids.append(class_id)
+
+    # Apply non-max suppression to remove overlapping boxes
+    indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
+
+    # Draw the boxes and labels on the frame
+    for i in indices:
+        i = i[0]
+        box = boxes[i]
+        class_id = class_ids[i]
+        class_name = classes[class_id]
+        confidence = confidences[i]
+        color = (0, 255, 0) if class_name == 'Drone' else (0, 0, 255)
+        cv2.rectangle(frame, (box[0], box[1]), (box[0]+box[2], box[1]+box[3]), color, 2)
+        cv2.putText(frame, f'{class_name}: {confidence:.2f}', (box[0], box[1]-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+    # Display the resulting frame
+    cv2.imshow('frame', frame)
+
+    # Exit the loop if the 'q' key is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
